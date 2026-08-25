@@ -78,6 +78,24 @@ def init_db():
     print("Database ready.")
 
 
+def get_db_status() -> str:
+    """Return a human-readable status of the database."""
+    try:
+        with get_connection() as conn:
+            tables = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+
+            if not tables:
+                return "Database connected, but no tables found."
+
+            table_names = [row["name"] for row in tables]
+            return f"Database connection successful. Tables: {', '.join(table_names)}"
+    except Exception as e:
+        return f"Database error: {e}"
+
+
 if __name__ == "__main__":
     init_db()
+    print(get_db_status())
     # backup_db()   # uncomment if you want to test backup
