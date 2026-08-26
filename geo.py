@@ -5,6 +5,7 @@ import requests
 from typing import Optional
 
 from geocoded_zip import GeocodedZip
+import db
 
 def is_valid_us_zip(zip_code: str) -> bool:
     """Return True if the input is a valid 5-digit US ZIP code."""
@@ -23,9 +24,16 @@ def geocode_zip(zip_code: str) -> Optional[GeocodedZip]:
         - zip
 
     Returns None if the ZIP is invalid or the lookup fails.
+
+    Uses database cache when possible.
     """
     if not is_valid_us_zip(zip_code):
         return None
+
+    # Try the cache first
+    cached = db.get_cached_location(zip_code)
+    if cached is not None:
+        return cached
 
     url = f"https://api.zippopotam.us/us/{zip_code}"
 

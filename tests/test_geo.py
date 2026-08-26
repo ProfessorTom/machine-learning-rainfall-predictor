@@ -3,8 +3,9 @@
 from unittest.mock import patch, MagicMock
 from hamcrest import assert_that, is_
 from geo import is_valid_us_zip, geocode_zip
-from tests.conftest import BEVERLY_HILLS_LOCATION, BEVERLY_HILLS_JSON
 
+from tests.conftest import BEVERLY_HILLS_LOCATION, BEVERLY_HILLS_JSON
+import db
 
 class IsValidUsZipTests:
     @staticmethod
@@ -62,3 +63,18 @@ class GecodeZipTests:
             "https://api.zippopotam.us/us/90210",
             timeout=5
         )
+
+    @staticmethod
+    @patch("geo.requests.get")
+    def test_geocode_zip_cache_hit_happy_path(mock_get: MagicMock, clean_db):
+        # Arrange – put the data in the cache first
+        db.save_location(BEVERLY_HILLS_LOCATION)
+
+        # Act
+        result = geocode_zip("90210")
+
+        # Assert
+        assert_that(result, is_(BEVERLY_HILLS_LOCATION))
+
+        # Most important: we should NOT have called the external API
+        mock_get.assert_not_called()
