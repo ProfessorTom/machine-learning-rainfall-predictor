@@ -1,5 +1,6 @@
 # tests/test_geo.py
 
+from unittest.mock import patch, MagicMock
 from hamcrest import assert_that, is_
 from geo import is_valid_us_zip, geocode_zip
 from geocoded_zip import GeocodedZip
@@ -45,7 +46,23 @@ class GecodeZipTests:
         assert_that(geocode_zip("abcde"), is_(None))
 
     @staticmethod
-    def test_geocode_zip_happy_path():
+    @patch("geo.requests.get")
+    def test_geocode_zip_happy_path(mock_get: MagicMock):
+        # Arrange – fake response from Zippopotam.us
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {
+            "post code": "90210",
+            "places": [{
+                "place name": "Beverly Hills",
+                "longitude": "-118.4065",
+                "latitude": "34.0901",
+                "state abbreviation": "CA"
+            }]
+        }
+        mock_get.return_value = mock_response
+
+        # Act
         data = GeocodedZip(
             zip = "90210",
             latitude = 34.0901,
@@ -54,3 +71,8 @@ class GecodeZipTests:
             state_abbr = "CA"
         )
         assert_that(geocode_zip("90210"), is_(data))
+
+        mock_get.assert_called_once_with(
+            "https://api.zippopotam.us/us/90210",
+            timeout=5
+        )
