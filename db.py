@@ -14,9 +14,6 @@ if CACHE_DB_DIR:
 else:
     CACHE_DB_PATH = CACHE_DB_NAME
 
-print(f"CACHE_DB_DIR: {CACHE_DB_DIR}")
-print(f"CACHE_DB_NAME: {CACHE_DB_NAME}")
-print(f"CACHE_DB_PATH: {CACHE_DB_PATH}")
 
 def get_connection():
     """Return a connection to the SQLite database.
