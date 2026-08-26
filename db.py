@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import shutil
 from typing import Optional
 
-from geocoded_zip import GeocodedZip
+from entities.geocoded_zip import GeocodedZip
 
 # --- Configuration (runs when the module is imported) ---
 CACHE_DB_NAME = os.getenv("CACHE_DB_NAME", "weather_cache.db")

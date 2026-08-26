@@ -1,6 +1,6 @@
 import pytest
 import db
-from geocoded_zip import GeocodedZip
+from entities.geocoded_zip import GeocodedZip
 
 
 # Shared test data

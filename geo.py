@@ -4,7 +4,7 @@
 import requests
 from typing import Optional
 
-from geocoded_zip import GeocodedZip
+from entities.geocoded_zip import GeocodedZip
 import db
 
 def is_valid_us_zip(zip_code: str) -> bool:
