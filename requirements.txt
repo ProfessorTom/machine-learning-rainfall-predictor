@@ -4,3 +4,5 @@ joblib
 flask
 requests
 python-dotenv
+pytest
+pyhamcrest
