@@ -47,7 +47,7 @@ class GecodeZipTests:
 
     @staticmethod
     @patch("geo.requests.get")
-    def test_geocode_zip_happy_path(mock_get: MagicMock):
+    def test_geocode_zip_no_cache_happy_path(mock_get: MagicMock, clean_db):
         # Arrange – fake response from Zippopotam.us
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
