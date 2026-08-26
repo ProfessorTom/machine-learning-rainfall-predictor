@@ -3,7 +3,7 @@
 from unittest.mock import patch, MagicMock
 from hamcrest import assert_that, is_
 from geo import is_valid_us_zip, geocode_zip
-from geocoded_zip import GeocodedZip
+from tests.conftest import BEVERLY_HILLS_LOCATION, BEVERLY_HILLS_JSON
 
 
 class IsValidUsZipTests:
@@ -51,25 +51,11 @@ class GecodeZipTests:
         # Arrange – fake response from Zippopotam.us
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            "post code": "90210",
-            "places": [{
-                "place name": "Beverly Hills",
-                "longitude": "-118.4065",
-                "latitude": "34.0901",
-                "state abbreviation": "CA"
-            }]
-        }
+        mock_response.json.return_value = BEVERLY_HILLS_JSON
         mock_get.return_value = mock_response
 
         # Act
-        data = GeocodedZip(
-            zip = "90210",
-            latitude = 34.0901,
-            longitude = -118.4065,
-            city = "Beverly Hills",
-            state_abbr = "CA"
-        )
+        data = BEVERLY_HILLS_LOCATION
         assert_that(geocode_zip("90210"), is_(data))
 
         mock_get.assert_called_once_with(

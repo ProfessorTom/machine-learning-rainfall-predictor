@@ -22,6 +22,7 @@ BEVERLY_HILLS_LOCATION = GeocodedZip(
     state_abbr="CA"
 )
 
+
 @pytest.fixture
 def clean_db(tmp_path, monkeypatch):
     """Create a temporary database for each test."""
