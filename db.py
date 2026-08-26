@@ -1,9 +1,11 @@
 import sqlite3
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import shutil
+from typing import Optional
 
+from geocoded_zip import GeocodedZip
 
 # --- Configuration (runs when the module is imported) ---
 CACHE_DB_NAME = os.getenv("CACHE_DB_NAME", "weather_cache.db")
@@ -90,6 +92,62 @@ def get_db_status() -> str:
             return f"Database connection successful. Tables: {', '.join(table_names)}"
     except Exception as e:
         return f"Database error: {e}"
+
+def get_cached_location(zip_code: str) -> Optional[GeocodedZip]:
+    """
+    Look up a ZIP code in the locations table.
+    Returns a GeocodedZip if found, otherwise None.
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT zip, latitude, longitude, city, state
+            FROM locations
+            WHERE zip = ?
+            """,
+            (zip_code,)
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return GeocodedZip(
+        zip=row["zip"],
+        latitude=row["latitude"],
+        longitude=row["longitude"],
+        city=row["city"],
+        state_abbr=row["state"],
+    )
+
+
+def save_location(location: GeocodedZip) -> None:
+    """
+    Insert or update a GeocodedZip in the locations table.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO locations (zip, latitude, longitude, city, state, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(zip) DO UPDATE SET
+                latitude = excluded.latitude,
+                longitude = excluded.longitude,
+                city = excluded.city,
+                state = excluded.state,
+                last_updated = excluded.last_updated
+            """,
+            (
+                location.zip,
+                location.latitude,
+                location.longitude,
+                location.city,
+                location.state_abbr,
+                now,
+            )
+        )
+        conn.commit()
 
 
 if __name__ == "__main__":
