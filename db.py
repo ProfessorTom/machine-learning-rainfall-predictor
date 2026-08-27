@@ -3,9 +3,10 @@ import os
 from pathlib import Path
 from datetime import datetime, timezone
 import shutil
-from typing import Optional
+from typing import Optional, List
 
-from entities import GeocodedZip
+from entities import GeocodedZip, HistoricalDay
+from datetime import date
 
 # --- Configuration (runs when the module is imported) ---
 CACHE_DB_NAME = os.getenv("CACHE_DB_NAME", "weather_cache.db")
@@ -148,6 +149,75 @@ def save_location(location: GeocodedZip) -> None:
             )
         )
         conn.commit()
+
+
+def save_historical_data(zip_code: str, days: list[HistoricalDay]) -> None:
+    """
+    Save a list of HistoricalDay records for a ZIP code.
+    Uses INSERT OR REPLACE so re-fetching the same days is safe.
+    """
+    with get_connection() as conn:
+        for day in days:
+            conn.execute(
+                """
+                INSERT INTO historical (zip, date, temp_max, temp_min, precipitation)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(zip, date) DO UPDATE SET
+                    temp_max = excluded.temp_max,
+                    temp_min = excluded.temp_min,
+                    precipitation = excluded.precipitation
+                """,
+                (
+                    zip_code,
+                    day.date.isoformat(),   # convert date → string for SQLite
+                    day.temp_max,
+                    day.temp_min,
+                    day.precipitation,
+                )
+            )
+        conn.commit()
+
+
+def get_historical_data(
+        zip_code: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+) -> List[HistoricalDay]:
+    """
+    Retrieve historical weather data for a ZIP code.
+
+    Optionally filter by start_date and/or end_date (inclusive).
+    Returns a list of HistoricalDay objects ordered by date.
+    """
+    query = """
+        SELECT date, temp_max, temp_min, precipitation
+        FROM historical
+        WHERE zip = ?
+    """
+    params: list = [zip_code]
+
+    if start_date is not None:
+        query += " AND date >= ?"
+        params.append(start_date.isoformat())
+
+    if end_date is not None:
+        query += " AND date <= ?"
+        params.append(end_date.isoformat())
+
+    query += " ORDER BY date"
+
+    with get_connection() as conn:
+        rows = conn.execute(query, params).fetchall()
+
+    return [
+        HistoricalDay(
+            date=date.fromisoformat(row["date"]),
+            temp_max=row["temp_max"],
+            temp_min=row["temp_min"],
+            precipitation=row["precipitation"],
+        )
+        for row in rows
+    ]
 
 
 if __name__ == "__main__":
