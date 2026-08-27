@@ -1,7 +1,7 @@
 from hamcrest import assert_that, is_
 
 from db import save_location, get_cached_location
-from entities.geocoded_zip import GeocodedZip
+from entities import GeocodedZip
 
 
 class GetCachedLocationTests:
