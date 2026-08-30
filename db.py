@@ -1,7 +1,7 @@
 import sqlite3
 import os
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import shutil
 from typing import Optional, List
 
@@ -93,6 +93,7 @@ def get_db_status() -> str:
             return f"Database connection successful. Tables: {', '.join(table_names)}"
     except Exception as e:
         return f"Database error: {e}"
+
 
 def get_cached_location(zip_code: str) -> Optional[GeocodedZip]:
     """
@@ -218,6 +219,50 @@ def get_historical_data(
         )
         for row in rows
     ]
+
+
+def _expected_day_count(start_date: date, end_date: date) -> int:
+    return (end_date - start_date).days + 1
+
+
+def get_missing_historical_ranges(
+        zip_code: str,
+        start_date: date,
+        end_date: date,
+) -> list[tuple[date, date]]:
+    """
+    Return contiguous date ranges that are missing from the cache.
+
+    This simple version only looks for missing days at the beginning
+    and/or the end of the requested window.
+    """
+    cached = get_historical_data(zip_code, start_date, end_date)
+
+    if not cached:
+        return [(start_date, end_date)]
+
+    expected = _expected_day_count(start_date, end_date)
+    min_date = cached[0].date
+    max_date = cached[-1].date
+
+    if (
+            len(cached) == expected
+            and min_date == start_date
+            and max_date == end_date
+    ):
+        return []
+
+    missing: list[tuple[date, date]] = []
+
+    # Missing the oldest days
+    if min_date > start_date:
+        missing.append((start_date, min_date - timedelta(days=1)))
+
+    # Missing the newest days
+    if max_date < end_date:
+        missing.append((max_date + timedelta(days=1), end_date))
+
+    return missing
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
-from datetime import date
-
+from datetime import date, timedelta
 from hamcrest import assert_that, is_, has_length, empty
-
-from db import save_location, get_cached_location, save_historical_data, get_historical_data
+from db import (save_location, get_cached_location, save_historical_data, get_historical_data,
+                _expected_day_count, get_missing_historical_ranges)
 from entities import GeocodedZip, HistoricalDay
+import pytest
 
 
 class GetCachedLocationTests:
@@ -108,3 +108,98 @@ class SaveHistoricalDataTests:
 
         assert_that(result, has_length(1))
         assert_that(result[0], is_(updated_day))
+
+
+class ExpectedDateCountTests:
+    @staticmethod
+    def test_expected_date_count():
+        daysAgo = 5
+        delta = timedelta(days = daysAgo)
+        fiveDaysAgo = date.today() - delta
+        assert_that(_expected_day_count(fiveDaysAgo, date.today()), is_(daysAgo + 1))
+
+
+def _days(start: date, end: date) -> list[HistoricalDay]:
+    days = []
+    current = start
+    while current <= end:
+        days.append(
+            HistoricalDay(
+                date=current,
+                temp_max=20.0,
+                temp_min=10.0,
+                precipitation=0.0,
+            )
+        )
+        current += timedelta(days=1)
+    return days
+
+
+JAN_1 = date(2024, 1, 1)
+JAN_3 = date(2024, 1, 3)
+JAN_5 = date(2024, 1, 5)
+JAN_8 = date(2024, 1, 8)
+JAN_10 = date(2024, 1, 10)
+
+
+class GetMissingHistoricalRangesTests:
+    @staticmethod
+    def test_no_cached_data(clean_db):
+        daysAgo = 5
+        delta = timedelta(days = daysAgo)
+        fiveDaysAgo = date.today() - delta
+        expectedResult = [(fiveDaysAgo, date.today())]
+        assert_that(get_missing_historical_ranges("90210", fiveDaysAgo, date.today()),
+                    is_(expectedResult))
+
+    @pytest.mark.parametrize(
+        "start_date, end_date, cached_start, cached_end, expected",
+        [
+            # no cached data
+            (JAN_1, JAN_10, None, None, [(JAN_1, JAN_10)]),
+
+            # full range is present
+            (JAN_1, JAN_10, JAN_1, JAN_10, []),
+
+            # missing the beginning
+            (JAN_1, JAN_10, JAN_3, JAN_10, [(JAN_1, date(2024, 1, 2))]),
+
+            # missing the end
+            (JAN_1, JAN_10, JAN_1, JAN_8, [(date(2024, 1, 9), JAN_10)]),
+
+            # missing both beginning and end
+            (JAN_1, JAN_10, JAN_3, JAN_8, [
+                (JAN_1, date(2024, 1, 2)),
+                (date(2024, 1, 9), JAN_10),
+            ]),
+
+            # single day present
+            (JAN_5, JAN_5, JAN_5, JAN_5, []),
+
+            # single day missing
+            (JAN_5, JAN_5, None, None, [(JAN_5, JAN_5)]),
+        ],
+        ids=[
+            "no_cached_data",
+            "full_range_present",
+            "missing_beginning",
+            "missing_end",
+            "missing_both_ends",
+            "single_day_present",
+            "single_day_missing",
+        ],
+    )
+    def test_missing_ranges(
+            self,
+            clean_db,
+            start_date,
+            end_date,
+            cached_start,
+            cached_end,
+            expected,
+    ):
+        if cached_start is not None and cached_end is not None:
+            save_historical_data("90210", _days(cached_start, cached_end))
+
+        result = get_missing_historical_ranges("90210", start_date, end_date)
+        assert_that(result, is_(expected))
