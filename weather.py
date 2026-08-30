@@ -3,8 +3,10 @@ from typing import Optional, List
 import requests
 from dateutil.relativedelta import relativedelta
 
+from db import get_missing_historical_ranges, save_historical_data, get_historical_data
 from entities import GeocodedZip, HistoricalDay
 from tests.conftest import BEVERLY_HILLS_LOCATION
+
 
 def fetch_historical_weather(
         location: GeocodedZip,
@@ -57,6 +59,39 @@ def fetch_historical_weather(
         )
 
     return results
+
+
+def get_or_fetch_historical_weather(
+        location: GeocodedZip,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+) -> List[HistoricalDay]:
+    """
+    Return historical weather for a location.
+
+    Uses cached data when possible and only fetches missing
+    start/end ranges from Open-Meteo.
+    """
+    if end_date is None:
+        end_date = date.today()
+    if start_date is None:
+        start_date = end_date - relativedelta(years=2)
+
+    missing_ranges = get_missing_historical_ranges(
+        location.zip,
+        start_date,
+        end_date,
+    )
+
+    for range_start, range_end in missing_ranges:
+        new_days = fetch_historical_weather(
+            location,
+            start_date=range_start,
+            end_date=range_end,
+        )
+        save_historical_data(location.zip, new_days)
+
+    return get_historical_data(location.zip, start_date, end_date)
 
 
 if __name__ == "__main__":
