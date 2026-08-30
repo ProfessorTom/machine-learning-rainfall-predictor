@@ -45,13 +45,16 @@ def geocode_zip(zip_code: str) -> Optional[GeocodedZip]:
         # Zippopotam.us returns a list of places; we take the first one
         place = data["places"][0]
 
-        return GeocodedZip (
+        location =  GeocodedZip (
             zip = data["post code"],
             latitude = float(place["latitude"]),
             longitude = float(place["longitude"]),
             city = place["place name"],
             state_abbr = place["state abbreviation"],
         )
+
+        db.save_location(location)
+        return location
 
     except (requests.RequestException, KeyError, IndexError, ValueError):
         # Network error, unexpected JSON structure, etc.
