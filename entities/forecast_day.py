@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from dataclasses import dataclass
 
 
@@ -9,3 +9,4 @@ class ForecastDay:
     temp_min: float
     precipitation_sum: float
     predicted_precipitation: float | None = None
+    fetched_at: datetime | None = None
