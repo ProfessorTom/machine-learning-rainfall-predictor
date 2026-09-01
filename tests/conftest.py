@@ -1,5 +1,8 @@
+from datetime import date
+
 import pytest
 import db
+from entities import ForecastDay, HistoricalDay
 from entities.geocoded_zip import GeocodedZip
 
 
@@ -20,6 +23,20 @@ BEVERLY_HILLS_LOCATION = GeocodedZip(
     longitude=-118.4065,
     city="Beverly Hills",
     state_abbr="CA"
+)
+
+HISTORICAL_DAY_FOR_UNIT_TESTS = HistoricalDay(
+    date=date(2024, 1, 2),
+    temp_max=99.9,
+    temp_min=1.1,
+    precipitation=5.5,
+)
+
+FORECAST_DAY_FOR_UNIT_TESTS = ForecastDay(
+    date=date(2024, 1, 2),
+    temp_max=20.1,
+    temp_min=9.0,
+    precipitation_sum=2.3,
 )
 
 
