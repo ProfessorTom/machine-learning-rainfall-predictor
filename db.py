@@ -222,20 +222,14 @@ def get_historical_data(
         FROM historical
         WHERE zip = ?
     """
-    params: list = [zip_code]
 
-    if start_date is not None:
-        query += " AND date >= ?"
-        params.append(start_date.isoformat())
-
-    if end_date is not None:
-        query += " AND date <= ?"
-        params.append(end_date.isoformat())
-
-    query += " ORDER BY date"
-
-    with get_connection() as conn:
-        rows = conn.execute(query, params).fetchall()
+    rows = _get_weather_rows(
+        "historical",
+        "date, temp_max, temp_min, precipitation",
+        zip_code,
+        start_date,
+        end_date,
+    )
 
     return [
         HistoricalDay(
