@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from hamcrest import assert_that, is_, has_length, empty
 from db import (save_location, get_cached_location, save_historical_data, get_historical_data,
-                _expected_day_count, get_missing_historical_ranges)
+                _expected_day_count, get_missing_historical_ranges, _get_weather_rows)
 from entities import GeocodedZip, HistoricalDay
 import pytest
 
@@ -136,6 +136,7 @@ def _days(start: date, end: date) -> list[HistoricalDay]:
 
 
 JAN_1 = date(2024, 1, 1)
+JAN_2 = date(2024, 1, 2)
 JAN_3 = date(2024, 1, 3)
 JAN_5 = date(2024, 1, 5)
 JAN_8 = date(2024, 1, 8)
@@ -203,3 +204,57 @@ class GetMissingHistoricalRangesTests:
 
         result = get_missing_historical_ranges("90210", start_date, end_date)
         assert_that(result, is_(expected))
+
+
+class GetWeatherRowsTests:
+
+    @staticmethod
+    def test_returns_empty_when_not_found(clean_db):
+        rows = _get_weather_rows(
+            "historical",
+            "date, temp_max, temp_min, precipitation",
+            "90210",
+        )
+        assert_that(rows, has_length(0))
+
+    @staticmethod
+    def test_returns_all_rows_for_zip(clean_db):
+        save_historical_data("90210", _days(JAN_1, JAN_3))
+
+        rows = _get_weather_rows(
+            "historical",
+            "date, temp_max, temp_min, precipitation",
+            "90210",
+        )
+
+        assert_that(rows, has_length(3))
+        assert_that(rows[0]["date"], is_("2024-01-01"))
+        assert_that(rows[-1]["date"], is_("2024-01-03"))
+
+    @staticmethod
+    def test_filters_by_date_range(clean_db):
+        save_historical_data("90210", _days(JAN_1, JAN_3))
+
+        rows = _get_weather_rows(
+            "historical",
+            "date, temp_max, temp_min, precipitation",
+            "90210",
+            start_date=JAN_2,
+            end_date=JAN_2,
+        )
+
+        assert_that(rows, has_length(1))
+        assert_that(rows[0]["date"], is_("2024-01-02"))
+
+    @staticmethod
+    def test_does_not_return_other_zip(clean_db):
+        save_historical_data("90210", _days(JAN_1, JAN_3))
+
+        rows = _get_weather_rows(
+            "historical",
+            "date, temp_max, temp_min, precipitation",
+            "20500",
+        )
+
+        assert_that(rows, has_length(0))
+

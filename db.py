@@ -179,6 +179,33 @@ def save_historical_data(zip_code: str, days: list[HistoricalDay]) -> None:
         conn.commit()
 
 
+def _get_weather_rows(
+        table: str,
+        columns: str,
+        zip_code: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+):
+    query = f"""
+        SELECT {columns}
+        FROM {table}
+        WHERE zip = ?
+    """
+    params: list = [zip_code]
+
+    if start_date is not None:
+        query += " AND date >= ?"
+        params.append(start_date.isoformat())
+
+    if end_date is not None:
+        query += " AND date <= ?"
+        params.append(end_date.isoformat())
+
+    query += " ORDER BY date"
+
+    with get_connection() as conn:
+        return conn.execute(query, params).fetchall()
+
 def get_historical_data(
         zip_code: str,
         start_date: Optional[date] = None,
