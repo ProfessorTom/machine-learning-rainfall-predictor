@@ -1,8 +1,8 @@
 from datetime import date, timedelta
-from hamcrest import assert_that, is_, has_length, empty
+from hamcrest import assert_that, is_, has_length, empty, not_none
 from db import (save_location, get_cached_location, save_historical_data, get_historical_data,
-                _expected_day_count, get_missing_historical_ranges, _get_weather_rows)
-from entities import GeocodedZip, HistoricalDay
+                _expected_day_count, get_missing_historical_ranges, _get_weather_rows, save_forecasts, get_forecasts)
+from entities import GeocodedZip, HistoricalDay, ForecastDay
 import pytest
 
 
@@ -258,3 +258,78 @@ class GetWeatherRowsTests:
 
         assert_that(rows, has_length(0))
 
+
+def _forecast_days(start: date, end: date) -> list[ForecastDay]:
+    days = []
+    current = start
+    while current <= end:
+        days.append(
+            ForecastDay(
+                date=current,
+                temp_max=21.0,
+                temp_min=11.0,
+                precipitation_sum=0.4,
+            )
+        )
+        current += timedelta(days=1)
+    return days
+
+
+class GetForecastsTests:
+
+    @staticmethod
+    def test_returns_empty_list_when_not_found(clean_db):
+        result = get_forecasts("90210")
+        assert_that(len(result), is_(0))
+
+    @staticmethod
+    def test_returns_saved_days(clean_db):
+        original = _forecast_days(JAN_1, JAN_3)
+        save_forecasts("90210", original)
+
+        result = get_forecasts("90210")
+
+        assert_that(result, has_length(3))
+        assert_that(result[0].date, is_(JAN_1))
+        assert_that(result[-1].date, is_(JAN_3))
+        assert_that(result[0].temp_max, is_(21.0))
+        assert_that(result[0].precipitation_sum, is_(0.4))
+        assert_that(result[0].predicted_precipitation, is_(None))
+        assert_that(result[0].fetched_at, is_(not_none()))
+
+    @staticmethod
+    def test_filters_by_date_range(clean_db):
+        save_forecasts("90210", _forecast_days(JAN_1, JAN_3))
+
+        result = get_forecasts("90210", start_date=JAN_2, end_date=JAN_2)
+
+        assert_that(result, has_length(1))
+        assert_that(result[0].date, is_(JAN_2))
+
+    @staticmethod
+    def test_does_not_return_other_zip(clean_db):
+        save_forecasts("90210", _forecast_days(JAN_1, JAN_3))
+
+        result = get_forecasts("20500")
+        assert_that(len(result), is_(0))
+
+
+class SaveForecastsTests:
+
+    @staticmethod
+    def test_overwrites_existing_day(clean_db):
+        save_forecasts("90210", _forecast_days(JAN_1, JAN_3))
+
+        updated = ForecastDay(
+            date=JAN_2,
+            temp_max=99.9,
+            temp_min=1.1,
+            precipitation_sum=5.5,
+        )
+        save_forecasts("90210", [updated])
+
+        result = get_forecasts("90210", start_date=JAN_2, end_date=JAN_2)
+
+        assert_that(result, has_length(1))
+        assert_that(result[0].temp_max, is_(99.9))
+        assert_that(result[0].precipitation_sum, is_(5.5))

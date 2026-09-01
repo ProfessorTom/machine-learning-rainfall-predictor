@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import shutil
 from typing import Optional, List
 
-from entities import GeocodedZip, HistoricalDay
+from entities import GeocodedZip, HistoricalDay, ForecastDay
 from datetime import date
 
 # --- Configuration (runs when the module is imported) ---
@@ -69,6 +69,7 @@ def init_db():
                 date TEXT NOT NULL,
                 temp_max REAL,
                 temp_min REAL,
+                precipitation_sum REAL,
                 predicted_precipitation REAL,
                 fetched_at TEXT NOT NULL,
                 PRIMARY KEY (zip, date),
@@ -206,6 +207,7 @@ def _get_weather_rows(
     with get_connection() as conn:
         return conn.execute(query, params).fetchall()
 
+
 def get_historical_data(
         zip_code: str,
         start_date: Optional[date] = None,
@@ -284,6 +286,79 @@ def get_missing_historical_ranges(
         missing.append((max_date + timedelta(days=1), end_date))
 
     return missing
+
+
+def save_forecasts(zip_code: str, days: list[ForecastDay]):
+    """
+    Save a list of ForecastDay records for a ZIP code.
+    Uses INSERT OR REPLACE so re-fetching the same days is safe.
+    """
+
+    with get_connection() as conn:
+        now = datetime.now(timezone.utc).isoformat()
+
+        for day in days:
+            conn.execute(
+                """
+                INSERT INTO forecasts (zip, date, temp_max, temp_min, precipitation_sum, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(zip, date) DO UPDATE SET
+                    temp_max = excluded.temp_max,
+                    temp_min = excluded.temp_min,
+                    precipitation_sum = excluded.precipitation_sum,
+                    fetched_at = excluded.fetched_at
+                """,
+                (
+                    zip_code,
+                    day.date.isoformat(),   # convert date → string for SQLite
+                    day.temp_max,
+                    day.temp_min,
+                    day.precipitation_sum,
+                    now
+                )
+            )
+        conn.commit()
+
+
+def get_forecasts(
+        zip_code: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+) -> List[ForecastDay]:
+    """
+    Retrieve forecast rows for a ZIP code.
+
+    Optionally filter by start_date and/or end_date (inclusive).
+    Returns a list of ForecastDay objects ordered by date.
+    """
+    query = """
+        SELECT date, temp_max, temp_min, precipitation_sum,
+               predicted_precipitation, fetched_at
+        FROM forecasts
+        WHERE zip = ?
+    """
+
+    rows = _get_weather_rows(
+        "forecasts",
+        "date, temp_max, temp_min, precipitation_sum, predicted_precipitation, fetched_at",
+        zip_code,
+        start_date,
+        end_date,
+    )
+
+    return [
+        ForecastDay(
+            date=date.fromisoformat(row["date"]),
+            temp_max=row["temp_max"],
+            temp_min=row["temp_min"],
+            precipitation_sum=row["precipitation_sum"],
+            predicted_precipitation=row["predicted_precipitation"],
+            fetched_at=datetime.fromisoformat(row["fetched_at"])
+            if row["fetched_at"] is not None
+            else None,
+        )
+        for row in rows
+    ]
 
 
 if __name__ == "__main__":
