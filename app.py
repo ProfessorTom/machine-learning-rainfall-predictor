@@ -92,4 +92,6 @@ if __name__ == "__main__":
     if DEBUG:
         print_db_variables_debug()
 
-    app.run(debug=DEBUG, use_reloader=True)
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    port = int(os.getenv("FLASK_PORT", "5500"))
+    app.run(host=host, port=port, debug=DEBUG, use_reloader=False)
