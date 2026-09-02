@@ -1,50 +1,143 @@
-async function loadCSV(path) {
-    const response = await fetch(path);
-    if (!response.ok) {
-        throw new Error(`Failed to load ${path}: ${response.status}`);
+let lastLikesCheese = null;
+let requestInFlight = false;
+
+function formatNumber(value) {
+    if (value === null || value === undefined || value === "") {
+        return "N/A";
     }
-    const text = await response.text();
-    const lines = text.trim().split("\n");
-    const headers = lines[0].split(",");
-    const rows = lines.slice(1).map(line => {
-        const values = line.split(",");
-        let obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = values[i]?.trim());
-        return obj;
-    });
-    return rows;
+    const num = Number(value);
+    return Number.isFinite(num) ? num.toFixed(2) : String(value);
 }
 
-async function main() {
-    console.log("new main from Tomas");
+function setStatus(message, isError = false) {
+    const status = document.getElementById("status");
+    if (!status) {
+        return;
+    }
+    status.textContent = message;
+    status.classList.toggle("error", isError);
+}
+
+function setFormBusy(busy) {
+    requestInFlight = busy;
+    const form = document.getElementById("zip-form");
+    const button = form ? form.querySelector("button[type='submit']") : null;
+    const input = document.getElementById("zip-input");
+    if (button) {
+        button.disabled = busy;
+    }
+    if (input) {
+        input.disabled = busy;
+    }
+}
+
+function resetCheese() {
+    lastLikesCheese = null;
+    const egg = document.getElementById("cheese-egg");
+    const button = document.getElementById("cheese-button");
+    const verdict = document.getElementById("cheese-verdict");
+    if (!egg) {
+        return;
+    }
+    egg.classList.remove("is-visible");
+    if (button) {
+        button.classList.remove("is-hidden");
+    }
+    if (verdict) {
+        verdict.classList.add("is-hidden");
+        verdict.textContent = "";
+    }
+}
+
+function revealCheese() {
+    console.log("revealCheese", lastLikesCheese);
+
+    if (lastLikesCheese === null) {
+        return;
+    }
+    const button = document.getElementById("cheese-button");
+    const verdict = document.getElementById("cheese-verdict");
+    const notWord = lastLikesCheese ? "" : "not ";
+    verdict.textContent = `The user does ${notWord}like cheese.`;
+    button.classList.add("is-hidden");
+    verdict.classList.remove("is-hidden");
+}
+
+async function predictZip(zip) {
     const tbody = document.getElementById("forecast-table-body");
     tbody.innerHTML = "";
+    resetCheese();
+    setStatus("Loading…");
+    setFormBusy(true);
 
     try {
-        // Path is relative to index.html
-        const data = await loadCSV("data/centreville_forecast.csv");
+        const response = await fetch("/api/predict/" + encodeURIComponent(zip));
+        const data = await response.json();
 
-        if (data.length === 0) {
-            tbody.innerHTML = "<tr><td colspan='4'>No data found in CSV</td></tr>";
+        if (!response.ok) {
+            throw new Error(data.error || `Request failed (${response.status})`);
+        }
+
+        window.lastPredict = data;
+
+        const loc = data.location;
+        setStatus(
+            `${loc.city}, ${loc.state} ${loc.zip} — ${data.historical_days} historical days — ${data.elapsed_ms} ms`
+        );
+
+        if (!data.forecast || data.forecast.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='5'>No forecast data</td></tr>";
             return;
         }
 
-        for (let row of data) {
+        for (const row of data.forecast) {
             const tr = document.createElement("tr");
-            // Handle both possible column names
-            const rain = row.predicted_precipitation ?? row.predicted_rain ?? "N/A";
             tr.innerHTML = `
                 <td>${row.date}</td>
-                <td>${row.temp_max}</td>
-                <td>${row.temp_min}</td>
-                <td>${rain}</td>
+                <td>${formatNumber(row.temp_max)}</td>
+                <td>${formatNumber(row.temp_min)}</td>
+                <td>${formatNumber(row.forecast_precipitation)}</td>
+                <td>${formatNumber(row.predicted_precipitation)}</td>
             `;
             tbody.appendChild(tr);
         }
-        console.log(`Loaded ${data.length} rows successfully`);
-    } catch (error) {
-        console.error(error);
-        tbody.innerHTML = `<tr><td colspan="4">Error: ${error.message}. Check console (F12).</td></tr>`;
+
+        console.log(`data.diagnostics.user_likes_cheese: ${data.diagnostics.user_likes_cheese}`)
+        lastLikesCheese = Boolean(data.diagnostics.user_likes_cheese);
+        const egg = document.getElementById("cheese-egg");
+        if (egg) {
+            egg.classList.add("is-visible");
+        }
+    } finally {
+        setFormBusy(false);
+    }
+}
+
+function main() {
+    const form = document.getElementById("zip-form");
+    const input = document.getElementById("zip-input");
+    const cheeseButton = document.getElementById("cheese-button");
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (requestInFlight) {
+            return;
+        }
+        const zip = input.value.trim();
+        if (!/^\d{5}$/.test(zip)) {
+            setStatus("Enter a 5-digit US ZIP code.", true);
+            return;
+        }
+        try {
+            await predictZip(zip);
+        } catch (error) {
+            console.error(error);
+            setStatus(error.message, true);
+        }
+    });
+
+    if (cheeseButton) {
+        cheeseButton.addEventListener("click", revealCheese);
     }
 }
 
