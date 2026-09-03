@@ -46,6 +46,7 @@ def api_predict(zip_code: str):
         forecast = get_or_fetch_forecast(location)
         predicted = predict_forecast(historical, forecast)
         user_likes_cheese = random.randint(1, 100) % 2 == 1
+        user_thinking_about_hats = random.randint(1, 100) % 2 == 1
     except Exception as e:
         return jsonify({"error": f"Failed to generate prediction: {str(e)}"}), 500
 
@@ -72,7 +73,8 @@ def api_predict(zip_code: str):
             for d in predicted
         ],
         "diagnostics": {
-            "user_likes_cheese": user_likes_cheese
+            "user_likes_cheese": user_likes_cheese,
+            "user_thinking_about_hats": user_thinking_about_hats
         }
     })
 

@@ -1,4 +1,5 @@
 let lastLikesCheese = null;
+let lastThinkingAboutHats = null;
 let requestInFlight = false;
 
 function formatNumber(value) {
@@ -29,6 +30,28 @@ function setFormBusy(busy) {
     if (input) {
         input.disabled = busy;
     }
+}
+
+function resetHats() {
+    lastThinkingAboutHats = null;
+    const button = document.getElementById("hat-button");
+    const verdict = document.getElementById("hat-verdict");
+    if (button) button.classList.remove("is-hidden");
+    if (verdict) {
+        verdict.classList.add("is-hidden");
+        verdict.textContent = "";
+    }
+}
+
+function revealHats() {
+    console.log(`lastThinkingAboutHats: ${lastThinkingAboutHats}`)
+    if (lastThinkingAboutHats === null) return;
+
+    const notWord = lastThinkingAboutHats ? "" : "not ";
+    document.getElementById("hat-verdict").textContent =
+        `The user is ${notWord}thinking about hats.`;
+    document.getElementById("hat-button").classList.add("is-hidden");
+    document.getElementById("hat-verdict").classList.remove("is-hidden");
 }
 
 function resetCheese() {
@@ -67,6 +90,7 @@ async function predictZip(zip) {
     const tbody = document.getElementById("forecast-table-body");
     tbody.innerHTML = "";
     resetCheese();
+    resetHats();
     setStatus("Loading…");
     setFormBusy(true);
 
@@ -104,9 +128,18 @@ async function predictZip(zip) {
 
         console.log(`data.diagnostics.user_likes_cheese: ${data.diagnostics.user_likes_cheese}`)
         lastLikesCheese = Boolean(data.diagnostics.user_likes_cheese);
-        const egg = document.getElementById("cheese-egg");
-        if (egg) {
-            egg.classList.add("is-visible");
+
+        console.log(`data.diagnostics.user_thinking_about_hats: ${data.diagnostics.user_thinking_about_hats}`)
+        lastThinkingAboutHats = Boolean(data.diagnostics.user_thinking_about_hats);
+
+        const cheeseEgg = document.getElementById("cheese-egg");
+        if (cheeseEgg) {
+            cheeseEgg.classList.add("is-visible");
+        }
+
+        const hatEgg = document.getElementById("hat-egg");
+        if (hatEgg) {
+            hatEgg.classList.add("is-visible");
         }
     } finally {
         setFormBusy(false);
@@ -117,6 +150,7 @@ function main() {
     const form = document.getElementById("zip-form");
     const input = document.getElementById("zip-input");
     const cheeseButton = document.getElementById("cheese-button");
+    const hatButton = document.getElementById("hat-button");
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -138,6 +172,10 @@ function main() {
 
     if (cheeseButton) {
         cheeseButton.addEventListener("click", revealCheese);
+    }
+
+    if (hatButton) {
+        hatButton.addEventListener("click", revealHats);
     }
 }
 
