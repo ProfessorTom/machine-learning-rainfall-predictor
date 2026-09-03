@@ -144,3 +144,30 @@ td {
     color: #2c3e50;
     font-weight: 600;
 }
+
+.hat-egg {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 56px;
+    margin-top: 8px;
+}
+
+.hat-button.is-hidden,
+.hat-verdict.is-hidden {
+    display: none;
+}
+
+.hat-verdict {
+    margin: 0;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.gags {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
